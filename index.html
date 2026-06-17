@@ -385,7 +385,7 @@
 
     <div class="session-bar">
       <span>Logged in as: <strong id="sessionLabel"></strong>
-        <span class="countdown-box ok" id="countdownBox">15:00</span>
+        <span class="countdown-box ok" id="countdownBox">05:00</span>
       </span>
       <button class="logout-btn" onclick="doLogout()">Log Out</button>
     </div>
@@ -494,7 +494,7 @@
   const SESSION_SET   = 'https://inder20216.app.n8n.cloud/webhook/MIS-session-set';
   const SESSION_CLEAR = 'https://inder20216.app.n8n.cloud/webhook/MIS-session-clear';
 
-  const SESSION_SECS = 15 * 60;   // Hard 15-min fixed session limit
+  const SESSION_SECS = 05 * 60;   // Hard 05-min fixed session limit
   const WARN_SECS    = 2  * 60;   // Show warning at 2 min remaining
   const POLL_MS      = 10 * 1000;
 
@@ -641,7 +641,7 @@
   }
 
   // ============================================================
-  // FIXED 15-MINUTE COUNTDOWN (hard limit from login time)
+  // FIXED 05-MINUTE COUNTDOWN (hard limit from login time)
   // ============================================================
   function startCountdown() {
     stopCountdown();
@@ -653,7 +653,7 @@
       if (secondsLeft <= 0) {
         stopCountdown();
         await clearSession();
-        alert('Your 15-minute session has ended. Please log in again.');
+        alert('Your 05-minute session has ended. Please log in again.');
         sessionUser  = null;
         sessionDept  = null;
         sessionToken = null;
