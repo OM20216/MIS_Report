@@ -360,17 +360,8 @@
         <label for="loginDept">Department *</label>
         <select id="loginDept">
           <option value="">— Select your department —</option>
-          <option value="Apollo">Apollo</option>
-          <option value="Resmed">Resmed</option>
-          <option value="Facility">Nihon</option>
-          <option value="Facility">VMM</option>
-          <option value="Facility">Infres</option>
-         <option value="Facility">ONDC</option>
-          <option value="PSRI">PSRI</option>
-          <option value="Vantive">Vantive</option>
-          <option value="Maccaron">Maccaron</option>
-          <option value="HR">HR</option>
-          <option value="LOTS">LOTS</option>
+          <option value="ResMed">ResMed</option>
+          <option value="ONDC">ONDC</option>
         </select>
       </div>
 
@@ -396,81 +387,24 @@
     <div class="instructions">
       <h2>Read Before Submitting</h2>
       <ol>
-        <li><strong>Prepare all 3 files</strong> before starting. Submit them one at a time in this order: Login Report first, then Daywise Summary, then CDR.</li>
-        <li><strong>Check the date on each file.</strong> All 3 files must be for the same date and must not have been submitted before.</li>
+        <li><strong>Prepare all required files</strong> before starting. Submit them one at a time in the order shown below.</li>
+        <li><strong>Check the date and timestamp on each file.</strong> All files must be for the correct report period and must not have been submitted before.</li>
         <li><strong>Do not rename any file.</strong> Files must start with the exact names shown below. Renamed files will be rejected.</li>
         <li><strong>Wait for confirmation</strong> after each upload before moving to the next. Do not close the browser during submission.</li>
         <li><strong>If you see an error</strong> after 2 attempts, contact the MIS team immediately.</li>
       </ol>
       <div class="file-names">
         <p>Required file name prefixes:</p>
-        <code>&#x2022; Loginout_Raw_Report</code>
-        <code>&#x2022; Daywise_Summary_Report</code>
-        <code>&#x2022; Call_Disposition_Report</code>
+        <div id="requiredFileNames"></div>
       </div>
     </div>
 
     <div class="steps-title">Upload Files — Step by Step</div>
 
-    <!-- Step 1 -->
-    <div class="step" id="step-1">
-      <div class="step-header">
-        <span class="step-num">Step 1 of 3</span>
-        <span class="step-title">Loginout Raw Report</span>
-        <span class="step-status" id="status-1">Pending</span>
-      </div>
-      <div class="step-hint">File must start with: <strong>Loginout_Raw_Report</strong></div>
-      <div class="file-upload-row">
-        <div class="file-input-wrap">
-          <input type="file" id="file-1" accept=".xls,.xlsx,.csv" onchange="handleFileSelect(1)">
-          <span class="file-input-label" id="file-label-1">Click to choose file...</span>
-        </div>
-        <button class="step-btn" id="btn-1" disabled onclick="submitStep(1)">Submit</button>
-      </div>
-      <div class="validation-msg" id="val-1"></div>
-      <div class="done-mark" id="done-1">&#10003; Uploaded successfully</div>
-    </div>
-
-    <!-- Step 2 -->
-    <div class="step locked" id="step-2">
-      <div class="step-header">
-        <span class="step-num">Step 2 of 3</span>
-        <span class="step-title">Daywise Summary Report</span>
-        <span class="step-status" id="status-2">Waiting</span>
-      </div>
-      <div class="step-hint">File must start with: <strong>Daywise_Summary_Report</strong></div>
-      <div class="file-upload-row">
-        <div class="file-input-wrap">
-          <input type="file" id="file-2" accept=".xls,.xlsx,.csv" onchange="handleFileSelect(2)">
-          <span class="file-input-label" id="file-label-2">Click to choose file...</span>
-        </div>
-        <button class="step-btn" id="btn-2" disabled onclick="submitStep(2)">Submit</button>
-      </div>
-      <div class="validation-msg" id="val-2"></div>
-      <div class="done-mark" id="done-2">&#10003; Uploaded successfully</div>
-    </div>
-
-    <!-- Step 3 -->
-    <div class="step locked" id="step-3">
-      <div class="step-header">
-        <span class="step-num">Step 3 of 3</span>
-        <span class="step-title">Call Disposition Report (CDR)</span>
-        <span class="step-status" id="status-3">Waiting</span>
-      </div>
-      <div class="step-hint">File must start with: <strong>Call_Disposition_Report</strong></div>
-      <div class="file-upload-row">
-        <div class="file-input-wrap">
-          <input type="file" id="file-3" accept=".xls,.xlsx,.csv" onchange="handleFileSelect(3)">
-          <span class="file-input-label" id="file-label-3">Click to choose file...</span>
-        </div>
-        <button class="step-btn" id="btn-3" disabled onclick="submitStep(3)">Submit</button>
-      </div>
-      <div class="validation-msg" id="val-3"></div>
-      <div class="done-mark" id="done-3">&#10003; Uploaded successfully</div>
-    </div>
+    <div id="stepsContainer"></div>
 
     <div class="final-msg" id="finalMsg">
-      <strong>All 3 reports submitted successfully.</strong>
+      <strong id="finalTitle">All reports submitted successfully.</strong>
       The data has been recorded in the MIS Google Sheet. You have been logged out automatically.<br><br>
       If you notice any errors or uploaded the wrong file, please do not re-submit. Contact the MIS team for corrections.
     </div>
@@ -489,7 +423,8 @@
   // ============================================================
   // CONFIG
   // ============================================================
-  const WEBHOOK_URL   = 'https://inder20216.app.n8n.cloud/webhook/MIS-form';
+  const WEBHOOK_URL       = 'https://automation.openmindhelpline.com/webhook/ondc-sf-data';
+  const RESMED_WEBHOOK_URL = 'https://automation.openmindhelpline.com/webhook/resmed-hst';
   const SESSION_CHECK = 'https://inder20216.app.n8n.cloud/webhook/MIS-session-check';
   const SESSION_SET   = 'https://inder20216.app.n8n.cloud/webhook/MIS-session-set';
   const SESSION_CLEAR = 'https://inder20216.app.n8n.cloud/webhook/MIS-session-clear';
@@ -498,10 +433,22 @@
   const WARN_SECS    = 2  * 60;   // Show warning at 2 min remaining
   const POLL_MS      = 10 * 1000;
 
-  const FILE_PREFIXES = {
-    1: 'Loginout_Raw_Report',
-    2: 'Daywise_Summary_Report',
-    3: 'Call_Disposition_Report'
+  const DEPARTMENT_REPORTS = {
+    ONDC: [
+      'AHT Dump',
+      'Copy of AP_Harvinder',
+      'Unique Tickets by Agents',
+      'Chatbot Metrics Dashboard_ChatBot Summary',
+      'Copy of Pendency- Harvinder'
+    ],
+    ResMed: [
+      'HST Lead fulfillment - Internal'
+    ]
+  };
+
+  const DEPARTMENT_WEBHOOK = {
+    ONDC: WEBHOOK_URL,
+    ResMed: RESMED_WEBHOOK_URL
   };
 
   let sessionUser   = null;
@@ -510,7 +457,8 @@
   let currentStep   = 1;
   let countdownInterval = null;
   let secondsLeft   = SESSION_SECS;
-  const submittedFiles = { 1: null, 2: null, 3: null };
+  let activeReports = [];
+  let submittedFiles = {};
 
   // ============================================================
   // ON LOAD
@@ -556,8 +504,63 @@
     document.getElementById('loginBtn').disabled = false;
     document.getElementById('loginBtn').textContent = 'Sign In';
     document.getElementById('sessionLabel').textContent = sessionUser + ' — ' + sessionDept;
+    renderDepartmentReports();
     startCountdown();
     refreshStatus();
+  }
+
+  function renderDepartmentReports() {
+    activeReports = DEPARTMENT_REPORTS[sessionDept] || [];
+    submittedFiles = {};
+    currentStep = 1;
+
+    const requiredFileNames = document.getElementById('requiredFileNames');
+    const stepsContainer = document.getElementById('stepsContainer');
+    const finalMsg = document.getElementById('finalMsg');
+
+    finalMsg.classList.remove('show');
+    document.querySelector('.session-bar').style.display = 'flex';
+
+    if (!activeReports.length) {
+      requiredFileNames.innerHTML = '<code>No upload list configured for this department yet.</code>';
+      stepsContainer.innerHTML = `
+        <div class="step">
+          <div class="step-header">
+            <span class="step-title">No upload files configured for ${sessionDept}</span>
+          </div>
+          <div class="step-hint">The report list for this department will be added later.</div>
+        </div>`;
+      return;
+    }
+
+    requiredFileNames.innerHTML = activeReports
+      .map(report => `<code>&#x2022; ${report}</code>`)
+      .join('');
+
+    stepsContainer.innerHTML = activeReports.map((report, index) => {
+      const step = index + 1;
+      const isLocked = step === 1 ? '' : ' locked';
+      const status = step === 1 ? 'Pending' : 'Waiting';
+
+      return `
+        <div class="step${isLocked}" id="step-${step}">
+          <div class="step-header">
+            <span class="step-num">Step ${step} of ${activeReports.length}</span>
+            <span class="step-title">${report}</span>
+            <span class="step-status" id="status-${step}">${status}</span>
+          </div>
+          <div class="step-hint">File must start with: <strong>${report}</strong></div>
+          <div class="file-upload-row">
+            <div class="file-input-wrap">
+              <input type="file" id="file-${step}" accept=".xls,.xlsx,.csv" onchange="handleFileSelect(${step})">
+              <span class="file-input-label" id="file-label-${step}">Click to choose file...</span>
+            </div>
+            <button class="step-btn" id="btn-${step}" disabled onclick="submitStep(${step})">Submit</button>
+          </div>
+          <div class="validation-msg" id="val-${step}"></div>
+          <div class="done-mark" id="done-${step}">&#10003; Uploaded successfully</div>
+        </div>`;
+    }).join('');
   }
 
   // ============================================================
@@ -704,7 +707,7 @@
 
     if (!file) return;
 
-    const prefix = FILE_PREFIXES[step];
+    const prefix = activeReports[step - 1];
 
     if (!file.name.startsWith(prefix)) {
       label.textContent = file.name;
@@ -713,7 +716,7 @@
       return;
     }
 
-    for (let i = 1; i <= 3; i++) {
+    for (let i = 1; i <= activeReports.length; i++) {
       if (i !== step && submittedFiles[i] && submittedFiles[i] === file.name) {
         valMsg.textContent = 'This file has already been submitted in a previous step.';
         valMsg.className = 'validation-msg error';
@@ -748,7 +751,8 @@
 
     try {
       const base64 = await toBase64(file);
-      const res = await fetch(WEBHOOK_URL, {
+      const targetWebhook = DEPARTMENT_WEBHOOK[sessionDept] || WEBHOOK_URL;
+      const res = await fetch(targetWebhook, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -769,13 +773,14 @@
       statusEl.className = 'step-status done-text';
       valMsg.textContent = '';
 
-      if (step < 3) {
+      if (step < activeReports.length) {
         currentStep = step + 1;
         document.getElementById('step-' + currentStep).classList.remove('locked');
         document.getElementById('status-' + currentStep).textContent = 'Ready';
       } else {
         await clearSession();
         stopCountdown();
+        document.getElementById('finalTitle').textContent = `All ${activeReports.length} reports submitted successfully.`;
         document.getElementById('finalMsg').classList.add('show');
         document.querySelector('.session-bar').style.display = 'none';
         document.getElementById('timeoutWarning').textContent = '';
