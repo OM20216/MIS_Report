@@ -423,8 +423,7 @@
   // ============================================================
   // CONFIG
   // ============================================================
-  const WEBHOOK_URL       = 'https://automation.openmindhelpline.com/webhook/ondc-sf-data';
-  const RESMED_WEBHOOK_URL = 'https://automation.openmindhelpline.com/webhook/resmed-hst';
+  const ONDC_WEBHOOK_URL  = 'https://automation.openmindhelpline.com/webhook/ondc-sf-data';
   const SESSION_CHECK = 'https://inder20216.app.n8n.cloud/webhook/MIS-session-check';
   const SESSION_SET   = 'https://inder20216.app.n8n.cloud/webhook/MIS-session-set';
   const SESSION_CLEAR = 'https://inder20216.app.n8n.cloud/webhook/MIS-session-clear';
@@ -433,22 +432,28 @@
   const WARN_SECS    = 2  * 60;   // Show warning at 2 min remaining
   const POLL_MS      = 10 * 1000;
 
+  // Each report has its OWN webhook -- different reports in the same
+  // department can (and here, do) go to entirely different n8n workflows.
   const DEPARTMENT_REPORTS = {
     ONDC: [
-      'AHT Dump',
-      'Copy of AP_Harvinder',
-      'Unique Tickets by Agents',
-      'Chatbot Metrics Dashboard_ChatBot Summary',
-      'Copy of Pendency- Harvinder'
+      { name: 'AHT Dump', webhook: ONDC_WEBHOOK_URL },
+      { name: 'Copy of AP_Harvinder', webhook: ONDC_WEBHOOK_URL },
+      { name: 'Unique Tickets by Agents', webhook: ONDC_WEBHOOK_URL },
+      { name: 'Chatbot Metrics Dashboard_ChatBot Summary', webhook: ONDC_WEBHOOK_URL },
+      { name: 'Copy of Pendency- Harvinder', webhook: ONDC_WEBHOOK_URL }
     ],
     ResMed: [
-      'HST Lead fulfillment - Internal'
+      { name: 'HST Lead fulfillment - Internal', webhook: 'https://automation.openmindhelpline.com/webhook/resmed-hst' },
+      { name: 'HST lead report_ Allocation + conversion', webhook: 'https://automation.openmindhelpline.com/webhook/resmed-hst-lead' }
     ]
   };
 
-  const DEPARTMENT_WEBHOOK = {
-    ONDC: WEBHOOK_URL,
-    ResMed: RESMED_WEBHOOK_URL
+  // ONDC's 5 files must go in order (each step unlocks the next). ResMed's
+  // two reports are independent -- either one, or both, in any order, and
+  // the user can log out after just one without being forced through the rest.
+  const DEPARTMENT_SEQUENTIAL = {
+    ONDC: true,
+    ResMed: false
   };
 
   let sessionUser   = null;
@@ -534,22 +539,27 @@
     }
 
     requiredFileNames.innerHTML = activeReports
-      .map(report => `<code>&#x2022; ${report}</code>`)
+      .map(report => `<code>&#x2022; ${report.name}</code>`)
       .join('');
+
+    const sequential = DEPARTMENT_SEQUENTIAL[sessionDept] !== false;
 
     stepsContainer.innerHTML = activeReports.map((report, index) => {
       const step = index + 1;
-      const isLocked = step === 1 ? '' : ' locked';
-      const status = step === 1 ? 'Pending' : 'Waiting';
+      const isLocked = (sequential && step > 1) ? ' locked' : '';
+      const status = (sequential && step > 1) ? 'Waiting' : 'Pending';
+      const stepLabel = sequential
+        ? `Step ${step} of ${activeReports.length}`
+        : `Report ${step} of ${activeReports.length} (optional — any order)`;
 
       return `
         <div class="step${isLocked}" id="step-${step}">
           <div class="step-header">
-            <span class="step-num">Step ${step} of ${activeReports.length}</span>
-            <span class="step-title">${report}</span>
+            <span class="step-num">${stepLabel}</span>
+            <span class="step-title">${report.name}</span>
             <span class="step-status" id="status-${step}">${status}</span>
           </div>
-          <div class="step-hint">File must start with: <strong>${report}</strong></div>
+          <div class="step-hint">File must start with: <strong>${report.name}</strong></div>
           <div class="file-upload-row">
             <div class="file-input-wrap">
               <input type="file" id="file-${step}" accept=".xls,.xlsx,.csv" onchange="handleFileSelect(${step})">
@@ -707,7 +717,7 @@
 
     if (!file) return;
 
-    const prefix = activeReports[step - 1];
+    const prefix = activeReports[step - 1].name;
 
     if (!file.name.startsWith(prefix)) {
       label.textContent = file.name;
@@ -751,7 +761,7 @@
 
     try {
       const base64 = await toBase64(file);
-      const targetWebhook = DEPARTMENT_WEBHOOK[sessionDept] || WEBHOOK_URL;
+      const targetWebhook = activeReports[step - 1].webhook;
       const res = await fetch(targetWebhook, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -773,17 +783,29 @@
       statusEl.className = 'step-status done-text';
       valMsg.textContent = '';
 
-      if (step < activeReports.length) {
+      const sequential = DEPARTMENT_SEQUENTIAL[sessionDept] !== false;
+      const allDone = Object.keys(submittedFiles).length === activeReports.length;
+
+      if (sequential && step < activeReports.length) {
         currentStep = step + 1;
         document.getElementById('step-' + currentStep).classList.remove('locked');
         document.getElementById('status-' + currentStep).textContent = 'Ready';
-      } else {
+      }
+
+      // Independent (non-sequential) departments finish here after just one
+      // report -- the remaining step(s) stay open in case they want to also
+      // submit the other, but nothing forces it; Log Out (always visible)
+      // ends the session whenever they're done.
+      if (allDone) {
         await clearSession();
         stopCountdown();
         document.getElementById('finalTitle').textContent = `All ${activeReports.length} reports submitted successfully.`;
         document.getElementById('finalMsg').classList.add('show');
         document.querySelector('.session-bar').style.display = 'none';
         document.getElementById('timeoutWarning').textContent = '';
+      } else if (!sequential) {
+        statusEl.textContent = 'Done — you may log out now or submit the other report';
+        statusEl.className = 'step-status done-text';
       }
 
     } catch(err) {
